@@ -219,6 +219,19 @@ const getAttributeType = (attr: Eloquent.Attribute): string => {
 
 const mapType = (cast: string|undefined, type: string): string => {
     const castMapping: Record<string, (string | RegExp)[]> = {
+        array: [
+            "json",
+            "encrypted:json",
+            "encrypted:array",
+        ],
+        mixed: [
+            "attribute",
+            "accessor",
+            "encrypted",
+        ],
+        object: [
+            "encrypted:object",
+        ],
         string: [
             "hashed",
         ],
@@ -229,38 +242,12 @@ const mapType = (cast: string|undefined, type: string): string => {
         "\\Illuminate\\Support\\Collection": [
             "encrypted:collection",
         ],
-        object: [
-            "encrypted:object",
-        ],
-        mixed: [
-            "attribute",
-            "accessor",
-            "encrypted",
-        ],
-        array: [
-            "json",
-            "encrypted:json",
-            "encrypted:array",
-        ],
     };
 
     const rawTypeMapping: Record<string, (string | RegExp)[]> = {
         bool: [
             /boolean(\((0|1)\))?/,
             /tinyint( unsigned)?(\(\d+\))?/,
-        ],
-        string: [
-            "date",
-            "time",
-            "uuid",
-            /json(b)?/,
-            /char\(\d+\)/,
-            /varchar\(\d+\)/,
-            /(long|medium)?text/,
-            /character(\(\d+\))?/,
-            /character varying(\(\d+\))?/,
-            /time(stamp)? (with|without) time zone/,
-            /time(stamp)?\(\d+\) (with|without) time zone/,
         ],
         float: [
             "real",
@@ -269,8 +256,21 @@ const mapType = (cast: string|undefined, type: string): string => {
             /(double|decimal|numeric)(\(\d+\,\d+\))?/,
         ],
         int: [
-            /(small|big)?int(eger)?( unsigned)?/,
             /(big)?serial/,
+            /(small|big)?int(eger)?( unsigned)?/,
+        ],
+        resource: [
+            "bytea",
+        ],
+        string: [
+            "date",
+            "time",
+            "uuid",
+            /json(b)?/,
+            /(long|medium)?text/,
+            /(var)?char(acter)?( varying)??(\(\d+\))?/,
+            /time(stamp)? (with|without) time zone/,
+            /time(stamp)?\(\d+\) (with|without) time zone/,
         ],
     };
 
@@ -295,7 +295,6 @@ const mapType = (cast: string|undefined, type: string): string => {
     return (
         findValueInMapping(castMapping, cast ?? '') ||
         findValueInMapping(rawTypeMapping, type) ||
-        type ||
         "mixed"
     );
 };
