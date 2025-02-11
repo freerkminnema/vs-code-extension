@@ -207,27 +207,61 @@ const getAttributeType = (attr: Eloquent.Attribute): string => {
 const mapType = (type: string): string => {
     const mapping: Record<string, (string | RegExp)[]> = {
         bool: [
-            "boolean(1)",
-            "boolean(0)",
-            "tinyint",
-            "tinyint unsigned",
             "boolean",
+            "tinyint",
+            "boolean(0)",
+            "boolean(1)",
             /tinyint\(\d+\)/,
+            "tinyint unsigned",
         ],
         string: [
+            "text",
+            "uuid",
+            "hashed",
+            "varchar",
             "longtext",
             "mediumtext",
-            "text",
-            /varchar\(\d+\)/,
             /char\(\d+\)/,
+            /varchar\(\d+\)/,
+            /character\(\d+\)/,
+            "character varying",
+            /character varying\(\d+\)/,
         ],
-        float: [/double\(\d+\,\d+\)/],
-        int: ["bigint", "bigint unsigned", "integer", "int unsigned"],
-        mixed: ["attribute", "accessor", "encrypted"],
-        array: ["encrypted:json", "encrypted:array", "json"],
-        "\\Illuminate\\Support\\Carbon": ["datetime", "timestamp"],
-        "\\Illuminate\\Support\\Collection": ["encrypted:collection"],
-        object: ["encrypted:object"],
+        float: [
+            "real",
+            "money",
+            "numeric",
+            "double precision",
+            /double\(\d+\,\d+\)/,
+            /numeric\(\d+\,\d+\)/,
+        ],
+        int: [
+            "bigint",
+            "integer",
+            "int unsigned",
+            "bigint unsigned",
+        ],
+        mixed: [
+            "attribute",
+            "accessor",
+            "encrypted",
+        ],
+        array: [
+            "json",
+            "jsonb",
+            "encrypted:json",
+            "encrypted:array",
+        ],
+        "\\Illuminate\\Support\\Carbon": [
+            "date",
+            "datetime",
+        ],
+        "\\Illuminate\\Support\\Collection": [
+            "encrypted:collection",
+        ],
+        object: [
+            "encrypted:object",
+        ],
     };
 
     for (const [newType, matches] of Object.entries(mapping)) {
