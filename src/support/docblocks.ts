@@ -68,22 +68,31 @@ const getBuilderReturnType = (
         return "mixed";
     }
 
-    const returnType = method.return
-        .replace(
-            "$this",
-            `\\Illuminate\\Database\\Eloquent\\Builder|${className}`,
-        )
-        .replace("\\TReturn", "mixed")
-        .replace("TReturn", "mixed")
-        .replace("\\TValue", "mixed")
-        .replace("TValue", "mixed");
+    if (method.return === "never") {
+        return "void";
+    }
 
     if (["static", "self"].includes(method.return)) {
         return `\\Illuminate\\Database\\Eloquent\\Builder|${className}`;
     }
 
-    if (method.return === "never") {
-        return "void";
+    const methodsThatReturnClassName = ["first","firstOrFail","sole"];
+
+    const returnType = method.return
+        .replace(
+            "$this",
+            `\\Illuminate\\Database\\Eloquent\\Builder|${className}`,
+        )
+        .replace("\\stdClass", `${className}`)
+        .replace("object", `${className}`)
+        .replace("TModel", className)
+        .replace("\\TReturn", "mixed")
+        .replace("TReturn", "mixed")
+        .replace("\\TValue", methodsThatReturnClassName.includes(method.name) ? className : "mixed")
+        .replace("TValue", "mixed");
+
+    if (returnType.includes("|mixed") || returnType.includes("mixed|")) {
+        // return "mixed";
     }
 
     return returnType;
@@ -199,58 +208,19 @@ const getAttributeBlocks = (
 };
 
 const getAttributeType = (attr: Eloquent.Attribute): string => {
-    const type = getActualType(attr.cast || attr.type);
+    const type = getActualType(attr.cast, attr.type);
+
+    if (type === "mixed") {
+        return type;
+    }
 
     return attr.nullable ? `${type}|null` : type;
 };
 
-const mapType = (type: string): string => {
-    const mapping: Record<string, (string | RegExp)[]> = {
-        bool: [
-            "boolean",
-            "tinyint",
-            "boolean(0)",
-            "boolean(1)",
-            /tinyint\(\d+\)/,
-            "tinyint unsigned",
-        ],
+const mapType = (cast: string|undefined, type: string): string => {
+    const castMapping: Record<string, (string | RegExp)[]> = {
         string: [
-            "text",
-            "uuid",
             "hashed",
-            "varchar",
-            "longtext",
-            "mediumtext",
-            /char\(\d+\)/,
-            /varchar\(\d+\)/,
-            /character\(\d+\)/,
-            "character varying",
-            /character varying\(\d+\)/,
-        ],
-        float: [
-            "real",
-            "money",
-            "numeric",
-            "double precision",
-            /double\(\d+\,\d+\)/,
-            /numeric\(\d+\,\d+\)/,
-        ],
-        int: [
-            "bigint",
-            "integer",
-            "int unsigned",
-            "bigint unsigned",
-        ],
-        mixed: [
-            "attribute",
-            "accessor",
-            "encrypted",
-        ],
-        array: [
-            "json",
-            "jsonb",
-            "encrypted:json",
-            "encrypted:array",
         ],
         "\\Illuminate\\Support\\Carbon": [
             "date",
@@ -262,25 +232,76 @@ const mapType = (type: string): string => {
         object: [
             "encrypted:object",
         ],
+        mixed: [
+            "attribute",
+            "accessor",
+            "encrypted",
+        ],
+        array: [
+            "json",
+            "encrypted:json",
+            "encrypted:array",
+        ],
     };
 
-    for (const [newType, matches] of Object.entries(mapping)) {
-        for (const match of matches) {
-            if (type === match) {
-                return newType;
-            }
+    const rawTypeMapping: Record<string, (string | RegExp)[]> = {
+        bool: [
+            /boolean(\((0|1)\))?/,
+            /tinyint( unsigned)?(\(\d+\))?/,
+        ],
+        string: [
+            "date",
+            "time",
+            "uuid",
+            /json(b)?/,
+            /char\(\d+\)/,
+            /varchar\(\d+\)/,
+            /(long|medium)?text/,
+            /character(\(\d+\))?/,
+            /character varying(\(\d+\))?/,
+            /time(stamp)? (with|without) time zone/,
+            /time(stamp)?\(\d+\) (with|without) time zone/,
+        ],
+        float: [
+            "real",
+            "money",
+            "double precision",
+            /(double|decimal|numeric)(\(\d+\,\d+\))?/,
+        ],
+        int: [
+            /(small|big)?int(eger)?( unsigned)?/,
+            /(big)?serial/,
+        ],
+    };
 
-            if (match instanceof RegExp && type.match(match)) {
-                return newType;
+    const findValueInMapping = (
+        mapping: Record<string, (string | RegExp)[]>,
+        value: string
+    ): string | undefined => {
+        for (const [newType, matches] of Object.entries(mapping)) {
+            for (const match of matches) {
+                if (match === value) {
+                    return newType;
+                }
+                
+                if (match instanceof RegExp && value.match(match)) {
+                    return newType;
+                }
             }
         }
-    }
+        return undefined;
+    };
 
-    return type;
+    return (
+        findValueInMapping(castMapping, cast ?? '') ||
+        findValueInMapping(rawTypeMapping, type) ||
+        type ||
+        "mixed"
+    );
 };
 
-const getActualType = (type: string): string => {
-    const finalType = mapType(type);
+const getActualType = (cast: string|undefined, type: string): string => {
+    const finalType = mapType(cast, type);
 
     if (finalType.includes("\\") && !finalType.startsWith("\\")) {
         return `\\${finalType}`;
